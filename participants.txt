@@ -1,0 +1,7 @@
+ivan 1
+georgi 3
+ilian 12
+hristiqn 4
+nikola 5
+milen 12
+petar 4
