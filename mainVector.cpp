@@ -35,7 +35,6 @@ void allFunctionTogether(){
     VecTree<Player> k;
     vector<Player> players = readFromFile();
     k.create(players);
-    k.debug();
     k.tournament();
     cout<<endl;
     string name;
