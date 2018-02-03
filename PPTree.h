@@ -1,14 +1,33 @@
 #include<iostream>
+#include<queue>
+#include<stack>
+#include <stdlib.h>
+#include<vector>
+#include <time.h>
 
 #ifndef PPTREE_H
 #define PPTREE_H
 
+using std::vector;
+using std::string;
+using std::cout;
+using std::endl;
+
+struct Player {
+    string name;
+    int coef;
+    friend std::ostream& operator<<(std::ostream& os, const Player& pl){
+        os<<pl.name<<" "<<pl.coef<<endl;
+        return os;
+    }
+};
+
 template<typename T>
 struct node
 {
-    T val;
-    node* left;
-    node* right;
+    T data;
+    node<T>* left;
+    node<T>* right;
 };
 
 template<typename T>
@@ -20,16 +39,31 @@ class PPTree
         PPTree<T>& operator=(const PPTree<T>&);
         ~PPTree();
 
-        void create(int);
+        void create();
+        void create(vector<T>);
+        void tournament(node<T>*, string);
+        void tournament();
+        void findpath(string);
+        int whoWins(Player, Player);
         void resize();
+
         void createNode(int, node<T>*[], node<T>**);
         node<T>* createTree(int n);
 
-        void inorder(node<T>*);
-        void print(); // prints the pos array
+        // Traversals
+        void preorderTraversal(node<T>*);
+        void preorderTraversal();
+        void inorderTraversal(node<T>*);
+        void inorderTraversal();
+        void postorderTraversal(node<T>*);
+        void postorderTraversal();
 
-        int getLength() const;
+        void debug(); // prints the pos array
+
+        int getCurrIndex() const;
         bool isEmpty() const;
+        bool hasTwoChilds(int) const;
+        int findFirstChild(int) const;
 
     private:
         int* pos;
@@ -86,6 +120,7 @@ void PPTree<T>::deleteTree(){
     delete[] values;
     pos = NULL;
     values = NULL;
+    currIndex = 0;
 };
 
 template<typename T>
@@ -94,33 +129,89 @@ bool PPTree<T>::isEmpty() const {
 };
 
 template<typename T>
-void PPTree<T>::create(int parent) {
+void PPTree<T>::create() { // not randomized creation CBT
     T x;
     char ans;
-
-    if(currIndex == size-1)resize();
+    int posToCheck = 0;
+    std::queue<int> tmp;
     std::cout<<"Node:";std::cin>>x;
-
-    pos[currIndex] = parent;
+    pos[currIndex] = -1;
     values[currIndex] = x;
     int currNode = currIndex;
     currIndex++;
+    tmp.push(currNode);
 
-    std::cout<<"Left tree of "<<x<<" (y/n)";
-    std::cin>>ans;
-    if(ans=='y'){
-        create(currNode);
-    }
+    std::cout<<"More elements?(y/n):";std::cin>>ans;
+    while(ans == 'y' || ans == 'Y'){
+        if(currIndex == size - 1)resize();
+        posToCheck = tmp.front();
+        std::cout<<"Node:";std::cin>>x;
 
-    std::cout<<"Right tree of "<<x<<" (y/n)";
-    std::cin>>ans;
-    if(ans=='y'){
-        create(currNode);
+        values[currIndex] = x;
+        if(hasTwoChilds(posToCheck)){
+            tmp.pop();
+            posToCheck = tmp.front();
+        }
+        if(!hasTwoChilds(posToCheck)){
+            pos[currIndex] = posToCheck;
+            tmp.push(currIndex);
+        }
+        currIndex++;
+        std::cout<<"More elements? (y/n):";std::cin>>ans;
     }
 };
 
 template<typename T>
-void PPTree<T>::print() {
+void PPTree<T>::create(vector<T> leafs) { //randomized creation
+    T x;
+    int currNode;
+    int posToCheck = 0;
+    std::queue<int> tmp;
+    srand(time(0));
+    int randomNumber;
+
+    if(!leafs.empty()){
+        int randomNumber;
+        if(leafs.size() == 1){
+            randomNumber = 0;
+        } else {
+            randomNumber = rand() % (leafs.size());
+        }
+        x = leafs[randomNumber];
+        leafs.erase(leafs.begin() + randomNumber);
+
+        pos[currIndex] = -1;
+        values[currIndex] = x;
+        int currNode = currIndex;
+        currIndex++;
+        tmp.push(currNode);
+    }
+
+    while(!leafs.empty()){
+        if(leafs.size() == 1){
+            randomNumber = 0;
+        } else {
+            randomNumber = rand() % (leafs.size());
+        }
+        x = leafs[randomNumber];
+        leafs.erase(leafs.begin() + randomNumber);
+        if(currIndex == size - 1)resize();
+        posToCheck = tmp.front();
+        values[currIndex] = x;
+        if(hasTwoChilds(posToCheck)){
+            tmp.pop();
+            posToCheck = tmp.front();
+        }
+        if(!hasTwoChilds(posToCheck)){
+            pos[currIndex] = posToCheck;
+            tmp.push(currIndex);
+        }
+        currIndex++;
+    }
+};
+
+template<typename T>
+void PPTree<T>::debug() {
     for(int i=0;i<currIndex;i++){
         std::cout<<pos[i]<<" ";
     }
@@ -133,7 +224,7 @@ void PPTree<T>::createNode(int i, node<T> *created[], node<T>** root)
         return;
 
     node<T>* temp = new node<T>;
-    temp->val = values[i];
+    temp->data = values[i];
     temp->left = temp->right = NULL;
     created[i] = temp;
 
@@ -168,18 +259,155 @@ node<T>* PPTree<T>::createTree(int n)
 };
 
 template<typename T>
-void PPTree<T>::inorder(node<T>* root){
+void PPTree<T>::preorderTraversal(node<T>* root){
     if (root != NULL)
     {
-        inorder(root->left);
         std::cout << root->val << " ";
-        inorder(root->right);
+        preorderTraversal(root->left);
+        preorderTraversal(root->right);
     }
 };
 
 template<typename T>
-int PPTree<T>::getLength() const{
+void PPTree<T>::preorderTraversal(){
+    preorderTraversal(createTree(currIndex));
+};
+
+template<typename T>
+void PPTree<T>::inorderTraversal(node<T>* root){
+    if (root != NULL)
+    {
+        inorderTraversal(root->left);
+        std::cout << root->data << " ";
+        inorderTraversal(root->right);
+    }
+};
+
+template<typename T>
+void PPTree<T>::inorderTraversal(){
+    inorderTraversal(createTree(currIndex));
+};
+
+template<typename T>
+void PPTree<T>::postorderTraversal(node<T>* root){
+    if (root != NULL)
+    {
+        postorderTraversal(root->left);
+        postorderTraversal(root->right);
+        std::cout << root->val << " ";
+    }
+};
+
+template<typename T>
+void PPTree<T>::postorderTraversal(){
+    postorderTraversal(createTree(currIndex));
+};
+
+template<typename T>
+int PPTree<T>::getCurrIndex() const{
     return currIndex;
+};
+
+template<typename T>
+bool PPTree<T>::hasTwoChilds(int posToCheck) const{
+    if(posToCheck > currIndex)return false;
+
+    int br=0;
+    for(int i =0; i<currIndex;i++){
+        if(posToCheck == pos[i])br++;
+    }
+
+    return br >= 2;
+}
+
+template<typename T>
+int PPTree<T>::findFirstChild(int posToCheck) const{
+    if(posToCheck > currIndex)return false;
+
+    for(int i = 0; i<currIndex;i++){
+        if(posToCheck == pos[i])return i;
+    }
+};
+
+template<typename T>
+void PPTree<T>::tournament(node<T>* nd, string nameToPrint){
+    if(nd->left){
+        if(nd->left->left)tournament(nd->left, nameToPrint);
+    }
+    if(nd->right){
+        if(nd->right->left)tournament(nd->right, nameToPrint);
+    }
+    if(nd->right){
+        if(nameToPrint == "" || nameToPrint == nd->left->data.name || nameToPrint == nd->right->data.name){
+            std::cout<<" Currently "<<nd->left->data.name<<" with coefficient "
+                <<nd->left->data.coef<<" and "<<nd->right->data.name<<" with coefficient "
+                    <<nd->right->data.coef<<" are playing\n";
+        }
+        int result = whoWins(nd->left->data, nd->right->data);
+        if(result == 2){
+            if(nameToPrint == "" || nameToPrint == nd->left->data.name || nameToPrint == nd->right->data.name){
+                nd->left->data = nd->right->data;
+                std::cout<<" The winner is "<<nd->left->data<< "\n";
+            } else nd->left->data = nd->right->data;
+            delete nd->right;
+            nd->right = NULL;
+        } else {
+            if(nameToPrint == "" || nameToPrint == nd->left->data.name || nameToPrint == nd->right->data.name){
+                std::cout<<" The winner is "<<nd->left->data<< "\n";
+            }
+            delete nd->right;
+            nd->right = NULL;
+        }
+    }
+    if(nd->left){
+        if(nameToPrint == "" || nameToPrint == nd->data.name || nameToPrint == nd->left->data.name){
+            std::cout<<" Currently "<<nd->data.name<<" with coefficient "<<nd->data.coef<<" and "<<nd->left->data.name<<" with coefficient "<<nd->left->data.coef<<" are playing\n";
+        }
+        int result = whoWins(nd->data, nd->left->data);
+        if(result == 2){
+
+            if(nameToPrint == "" || nameToPrint == nd->data.name || nameToPrint == nd->left->data.name){
+                nd->data = nd->left->data;
+                std::cout<<" The winner is "<<nd->data<< "\n";
+            } else nd->data = nd->left->data;
+            delete nd->left;
+            nd->left = NULL;
+        } else {
+            if(nameToPrint == "" || nameToPrint == nd->data.name || nameToPrint == nd->left->data.name){
+                std::cout<<" The winner is "<<nd->data<< "\n";
+            }
+            delete nd->left;
+            nd->left = NULL;
+        }
+    }
+};
+
+template<typename T>
+void PPTree<T>::tournament(){
+    node<T>* tour = createTree(currIndex);
+    if(tour == NULL){
+        std::cout<<"There are no players\n";
+    } else {
+        tournament(tour,"");
+        cout<<"The final winner is:"<<tour->data;
+    }
+};
+
+template<typename T>
+void PPTree<T>::findpath(string name){
+    node<T>* tour = createTree(currIndex);
+    if(tour == NULL){
+        std::cout<<"There are no players\n";
+    } else tournament(tour, name);
+};
+
+template<typename T>
+int PPTree<T>::whoWins(Player player1, Player player2){// 1 = player1 2 - player2
+    int sum = player1.coef + player2.coef;
+    srand(time(NULL));
+    int number = rand() % sum;
+    if(number <= player1.coef)return 1;
+    else return 2;
 };
 
 template<typename T>
